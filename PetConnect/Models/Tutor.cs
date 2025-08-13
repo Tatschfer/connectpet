@@ -1,16 +1,25 @@
-﻿using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
+﻿using System;
+using System.Collections.Generic;
 
-namespace PetConnect.Models
+namespace PetConnect.Models;
 
+public partial class Tutor
 {
-    public class Tutor
-    {
-        public string Id { get; set; }
-        public string Nome { get; set; }
-        public string CPF { get; set; }
-        public int Idade { get; set; }
-        public string EnderecoTutor { get; set; }
-        public string TelefoneTutor { get; set; }
-    }
+    public int IdTutor { get; set; }
+
+    public string NomeTutor { get; set; } = null!;
+
+    public string CpfTutor { get; set; } = null!;
+
+    public DateOnly DataDeNascimentoTutor { get; set; }
+
+    public string TelefoneTutor { get; set; }
+
+    public string EnderecoTutor { get; set; }
+
+    public string EmailTutor { get; set; }
+
+    public virtual ICollection<Operador> Operadores { get; set; } = new List<Operador>();
+
+    public virtual ICollection<Pet> Pets { get; set; } = new List<Pet   >();
 }

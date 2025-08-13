@@ -1,77 +1,68 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using PetConnect.Models;
-using PetConnect.Services;
+using DbCtx = PetConnect.Data.PetConnect;
 
-namespace PetConnect.Controllers
+namespace App.Api.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class TutorController : ControllerBase
 {
-    [ApiController]
-    [Route("[controller]")]
-    public class ConnectTutorController : ControllerBase
+    private readonly DbCtx _db;
+    public TutorController(DbCtx db) => _db = db;
+
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<Tutor>>> GetAll(CancellationToken ct)
+        => Ok(await _db.Operadores.AsNoTracking().ToListAsync(ct));
+
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<Tutor>> GetById(int id, CancellationToken ct)
     {
-        private readonly PetServiceTutor _petService;
-        public ConnectTutorController(PetServiceTutor petService)
+        var t = await _db.Tutores.FindAsync([id], ct);
+        return t is null ? NotFound() : Ok(t);
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<Tutor>> Create([FromBody] TutorInputDto dto, CancellationToken ct)
+    {
+        var t = new Tutor
         {
-            _petService = petService;
-        }
+            NomeTutor = dto.NomeTutor,
+            CpfTutor = dto.CPFTutor,
+            DataDeNascimentoTutor = dto.DataDeNascimentoTutor,
+            EnderecoTutor = dto.EnderecoTutor,
+            TelefoneTutor = dto.TelefoneTutor,
+            EmailTutor = dto.EmailTutor
+        };
+        _db.Tutores.Add(t);
+        await _db.SaveChangesAsync(ct);
+        return CreatedAtAction(nameof(GetById), new { id = t.IdTutor }, t);
+    }
 
-        [HttpGet]
-        public ActionResult<List<Tutor>> BuscarTutor()
-        {
-            var tutores = _petService.GetAll();
-            return Ok(tutores);
-        }
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> Update(int id, [FromBody] TutorUpdateDto dto, CancellationToken ct)
+    {
+        var t = await _db.Tutores.FindAsync([id], ct);
+        if (t is null) return NotFound();
 
-        [HttpGet("{id}")]
-        public ActionResult<Tutor> GetTutorById(string id)
-        {
-            var tutor = _petService.GetById(id);
-            if (tutor == null)
-                return NotFound();
-            return Ok(tutor);
-        }
+        if (!string.IsNullOrWhiteSpace(dto.NomeTutor)) t.NomeTutor = dto.NomeTutor;
+        if (!string.IsNullOrWhiteSpace(dto.CPFTutor)) t.CpfTutor = dto.CPFTutor;
+        if (!string.IsNullOrWhiteSpace(dto.EnderecoTutor)) t.EnderecoTutor = dto.EnderecoTutor;
+        if (!string.IsNullOrWhiteSpace(dto.TelefoneTutor)) t.TelefoneTutor = dto.TelefoneTutor;
+        if (!string.IsNullOrWhiteSpace(dto.EmailTutor)) t.EmailTutor = dto.EmailTutor;
 
-        [HttpPost]
-        public IActionResult CadastrarTutor([FromBody] TutorInputDto tutorEntrada)
-        {
-            var novoTutor = new Tutor
-            {
-                Nome = tutorEntrada.Nome,
-                CPF = tutorEntrada.CPF,
-                Idade = tutorEntrada.Idade,
-                EnderecoTutor = tutorEntrada.EnderecoTutor,
-                TelefoneTutor = tutorEntrada.TelefoneTutor
-            };
+        await _db.SaveChangesAsync(ct);
+        return NoContent();
+    }
 
-            var tutorCriado = _petService.Create(novoTutor);
-            return CreatedAtAction(nameof(GetTutorById), new { id = tutorCriado.Id }, tutorCriado);
-        }
-
-        [HttpPut("{id}")]
-        public IActionResult AtualizarTutor(string id, [FromBody] TutorUpdateDto tutorAtualizado)
-        {
-            var tutorExistente = _petService.GetById(id);
-            if (tutorExistente == null)
-                return NotFound();
-
-            tutorExistente.Nome = tutorAtualizado.Nome;
-            tutorExistente.CPF = tutorAtualizado.CPF;
-            tutorExistente.Idade = tutorAtualizado.Idade;
-            tutorExistente.EnderecoTutor = tutorAtualizado.EnderecoTutor;
-            tutorExistente.TelefoneTutor = tutorAtualizado.TelefoneTutor;
-
-            _petService.Update(id, tutorExistente);
-            return NoContent();
-        }
-
-        [HttpDelete("{id}")]
-        public IActionResult DeletarTutor(string id)
-        {
-            var tutor = _petService.GetById(id);
-            if (tutor == null)
-                return NotFound();
-
-            _petService.Delete(id);
-            return NoContent();
-        }
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id, CancellationToken ct)
+    {
+        var t = await _db.Tutores.FindAsync([id], ct);
+        if (t is null) return NotFound();
+        _db.Tutores.Remove(t);
+        await _db.SaveChangesAsync(ct);
+        return NoContent();
     }
 }
