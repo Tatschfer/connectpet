@@ -1,78 +1,69 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using PetConnect.Models;
-using PetConnect.Services;
+using DbCtx = PetConnect.Data.PetConnect;
 
-namespace PetConnect.Controllers
+namespace App.Api.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class PetsController : ControllerBase
 {
-    [ApiController]
-    [Route("[controller]")]
-    public class ConnectPetController : ControllerBase
+    private readonly DbCtx _db;
+    public PetsController(DbCtx db) => _db = db;
+
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<Pet>>> GetAll(CancellationToken ct)
+        => Ok(await _db.Operadores.AsNoTracking().ToListAsync(ct));
+
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<Pet>> GetById(int id, CancellationToken ct)
     {
-        private readonly PetServicePet _petService;
+        var pet = await _db.Pets.FindAsync([id], ct);
+        return pet is null ? NotFound() : Ok(pet);
+    }
 
-        public ConnectPetController(PetServicePet petService)
+    [HttpPost]
+    public async Task<ActionResult<Pet>> Create([FromBody] PetInputDto dto, CancellationToken ct)
+    {
+        var pet = new Pet
         {
-            _petService = petService;
-        }
+            Nome = dto.NomePet,
+            Raca = dto.RacaPet,
+            DataDeNascimento = dto.DataDeNascimentoPet,
+            Cpf = dto.CPFTutor,
+            Cor = dto.CorPet,
+            Especie = dto.EspeciePet
+        };
+        _db.Pets.Add(pet);
+        await _db.SaveChangesAsync(ct);
+        return CreatedAtAction(nameof(GetById), new { id = pet.IdPet }, pet);
+    }
 
-        [HttpGet]
-        public ActionResult<List<Pet>> BuscarPets()
-        {
-            var pets = _petService.GetAll();
-            return Ok(pets);
-        }
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> Update(int id, [FromBody] PetUpdateDto dto, CancellationToken ct)
+    {
+        var pet = await _db.Pets.FindAsync([id], ct);
+        if (pet is null) return NotFound();
 
-        [HttpGet("{id}")]
-        public ActionResult<Pet> GetPetById(string id)
-        {
-            var pet = _petService.GetById(id);
-            if (pet == null)
-                return NotFound();
-            return Ok(pet);
-        }
+        if (!string.IsNullOrWhiteSpace(dto.NomePet)) pet.Nome = dto.NomePet;
+        if (!string.IsNullOrWhiteSpace(dto.RacaPet)) pet.Raca = dto.RacaPet;
+        if (!string.IsNullOrWhiteSpace(dto.CPFTutor)) pet.Cpf = dto.CPFTutor;
+        if (!string.IsNullOrWhiteSpace(dto.CorPet)) pet.Cor = dto.CorPet;
+        if (!string.IsNullOrWhiteSpace(dto.EspeciePet)) pet.Especie = dto.EspeciePet;
 
-        [HttpPost]
-        public IActionResult CadastrarPet([FromBody] PetInputDto petEntrada)
-        {
-            var novoPet = new Pet
-            {
-                Nome = petEntrada.Nome,
-                Raca = petEntrada.Raca,
-                Idade = petEntrada.Idade,
-                CPF = petEntrada.CPF,
-                Cor = petEntrada.Cor
-            };
+        await _db.SaveChangesAsync(ct);
+        return NoContent();
+    }
 
-            var petCriado = _petService.Create(novoPet);
-            return CreatedAtAction(nameof(GetPetById), new { id = petCriado.Id }, petCriado);
-        }
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id, CancellationToken ct)
+    {
+        var pet = await _db.Pets.FindAsync([id], ct);
+        if (pet is null) return NotFound();
 
-        [HttpPut("{id}")]
-        public IActionResult AtualizarPet(string id, [FromBody] PetUpdateDto petAtualizado)
-        {
-            var petExistente = _petService.GetById(id);
-            if (petExistente == null)
-                return NotFound();
-
-            petExistente.Nome = petAtualizado.Nome;
-            petExistente.Raca = petAtualizado.Raca;
-            petExistente.Idade = petAtualizado.Idade;
-            petExistente.CPF = petAtualizado.CPF;
-            petExistente.Cor = petAtualizado.Cor;
-
-            _petService.Update(id, petExistente);
-            return NoContent();
-        }
-
-            [HttpDelete("{id}")]
-            public IActionResult DeletarPet(string id)
-            {
-                var pet = _petService.GetById(id);
-                if (pet == null)
-                    return NotFound();
-
-                _petService.Delete(id);
-                return NoContent();
-            }
-        }
+        _db.Pets.Remove(pet);
+        await _db.SaveChangesAsync(ct);
+        return NoContent();
+    }
 }

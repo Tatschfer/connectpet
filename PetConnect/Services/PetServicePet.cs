@@ -1,40 +1,45 @@
-﻿using MongoDB.Driver;
+﻿using Microsoft.EntityFrameworkCore;
 using PetConnect.Models;
+using DbCtx = PetConnect.Data.PetConnect;
 
-namespace PetConnect.Services
+namespace PetConnect.Services;
+
+public class PetService
 {
-    public class PetServicePet
+    private readonly DbCtx _db;
+    public PetService(DbCtx db) => _db = db;
+
+    public async Task<List<Pet>> GetAllAsync(CancellationToken ct = default)
+        => await _db.Pets.AsNoTracking().OrderBy(t => t.Nome).ToListAsync(ct);
+
+    public async Task<Pet?> GetByIdAsync(int id, CancellationToken ct = default)
+        => await _db.Pets.AsNoTracking().FirstOrDefaultAsync(t => t.IdPet == id, ct);
+
+    public async Task<Pet> CreateAsync(Pet pet, CancellationToken ct = default)
     {
-        private readonly IMongoCollection<Pet> _petCollection;
-
-        public PetServicePet(IMongoClient mongoClient)
-        {
-            var database = mongoClient.GetDatabase("PetConnectDb");
-            _petCollection = database.GetCollection<Pet>("Pets");
-        }
-
-        public List<Pet> GetAll() => _petCollection.Find(_ => true).ToList();
-
-        public Pet Create(Pet pet)
-        {
-            _petCollection.InsertOne(pet); 
-            return pet;
-        }
-
-        public Pet GetById(string id)
-        {
-            return _petCollection.Find(p => p.Id == id).FirstOrDefault();
-        }
-
-        public void Delete(string id)
-        {
-            _petCollection.DeleteOne(p => p.Id == id);
-        }
-
-        public void Update(string id, Pet pet)
-        {
-            _petCollection.ReplaceOne(p => p.Id == id, pet);
-        }
+        _db.Pets.Add(pet);
+        await _db.SaveChangesAsync(ct);
+        return pet;
     }
 
+    public async Task<bool> UpdateAsync(int id, Pet pet, CancellationToken ct = default)
+    {
+        var exists = await _db.Pets.AnyAsync(t => t.IdPet == id, ct);
+        if (!exists) return false;
+
+        pet.IdPet = id; 
+        _db.Entry(pet).State = EntityState.Modified;
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
+    {
+        var entity = await _db.Pets.FindAsync([id], ct);
+        if (entity is null) return false;
+
+        _db.Pets.Remove(entity);
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
 }
